@@ -1,6 +1,7 @@
 from sqlalchemy import Column, String, DateTime, JSON, Text
 from sqlalchemy.dialects.sqlite import BLOB
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from app.database import Base
 import uuid
 
@@ -16,3 +17,6 @@ class User(Base):
     avatar = Column(Text, nullable=True)                        # URL
     preferences = Column(JSON, nullable=False, default=dict)    # Free-form
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    moods = relationship("Mood", back_populates="user", cascade="all, delete-orphan")
