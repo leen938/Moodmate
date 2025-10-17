@@ -1,0 +1,6 @@
+__pycache__/
+.env
+moodmate.db
+*.pyc
+.vscode/
+.idea/
