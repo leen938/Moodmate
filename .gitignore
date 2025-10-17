@@ -4,3 +4,5 @@ moodmate.db
 *.pyc
 .vscode/
 .idea/
+.env
+moodmate.db

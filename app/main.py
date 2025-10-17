@@ -1,10 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi import Request
+import time, traceback, sys
+
 from app.database import Base, engine
-from app.routes import user, mood, task, resources, profile
+
+# ✅ import models BEFORE create_all so metadata includes them
+from app.models import user as _ensure_models
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)
+
+from app.routes import user, mood, task, resources, profile  # (routes can come after)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -13,10 +21,29 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# 🔎 Simple request/exception logger (add AFTER app = FastAPI(...))
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.time()
+    try:
+        print(f"[REQ] {request.method} {request.url.path}", flush=True)
+        response = await call_next(request)
+        dur = (time.time() - start) * 1000
+        print(f"[RES] {request.method} {request.url.path} -> {response.status_code} ({dur:.1f}ms)", flush=True)
+        return response
+    except Exception as exc:
+        dur = (time.time() - start) * 1000
+        print(f"[EXC] {request.method} {request.url.path} after {dur:.1f}ms", flush=True)
+        traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": {"code": "SERVER_ERROR", "message": "Unexpected error"}}
+        )
+
 # Allow requests from any origin (Kotlin app, emulator, etc.)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],           # Use ["http://10.0.2.2:8000"] or your real domain in production
+    allow_origins=["*"],           # tighten in prod
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
