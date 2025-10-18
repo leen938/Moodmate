@@ -100,6 +100,12 @@ def get_all_users(db: Session = Depends(get_db), _curr=Depends(get_current_user)
     users = db.query(User).all()
     return ok({"users": [to_public(user) for user in users]})
 
+@router.get("/public")
+def get_all_users_public(db: Session = Depends(get_db)):
+    """Get all users (public endpoint - for testing only)"""
+    users = db.query(User).all()
+    return ok({"users": [to_public(user) for user in users]})
+
 @router.get("/{id}")
 def get_user(id: str, db: Session = Depends(get_db), _curr=Depends(get_current_user)):
     print("DEBUG /user/{id} ->", id)
