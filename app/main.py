@@ -7,7 +7,7 @@ import time, traceback, sys
 from app.database import Base, engine
 
 # ✅ import models BEFORE create_all so metadata includes them
-from app.models import user, mood
+from app.models import user, mood, task
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)

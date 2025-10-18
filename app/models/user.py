@@ -20,3 +20,4 @@ class User(Base):
 
     # Relationships
     moods = relationship("Mood", back_populates="user", cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")

@@ -14,8 +14,8 @@ SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")     # change in prod
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 EXPIRE_DAYS = int(os.getenv("ACCESS_TOKEN_EXPIRE_DAYS", "7"))
 
-# Use bcrypt_sha256 to avoid bcrypt's 72-byte password limit safely
-pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+# Use pbkdf2_sha256 for better Python 3.14 compatibility
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # ----- Password hashing / verification -----
 def hash_password(plain: str) -> str:

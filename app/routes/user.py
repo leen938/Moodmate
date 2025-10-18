@@ -94,6 +94,12 @@ def init_user(payload: InitRequest, db: Session = Depends(get_db)):
 
     return ok({"user": to_public(new_user), "token": token})
 
+@router.get("/")
+def get_all_users(db: Session = Depends(get_db), _curr=Depends(get_current_user)):
+    """Get all users (admin only)"""
+    users = db.query(User).all()
+    return ok({"users": [to_public(user) for user in users]})
+
 @router.get("/{id}")
 def get_user(id: str, db: Session = Depends(get_db), _curr=Depends(get_current_user)):
     print("DEBUG /user/{id} ->", id)
