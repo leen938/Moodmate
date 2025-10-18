@@ -7,3 +7,5 @@ moodmate.db
 .env
 moodmate.db
 moodmate.db
+.DS_Store
+.venv/
