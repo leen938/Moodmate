@@ -65,15 +65,24 @@ def get_tasks(
         Task.deadline.asc()       # Then by deadline
     )
     
+    # Get total count after applying filters
     total = query.count()
     tasks = query.offset(offset).limit(limit).all()
     
-    completed_count = db.query(Task).filter(
-        Task.user_id == current_user.id,
-        Task.is_completed == True
-    ).count()
+    # Calculate completed and pending counts based on the same filtered query
+    completed_query = db.query(Task).filter(Task.user_id == current_user.id)
     
-    pending_count = total - completed_count
+    # Apply the same filters as the main query
+    if completed is not None:
+        completed_query = completed_query.filter(Task.is_completed == completed)
+    if priority is not None:
+        completed_query = completed_query.filter(Task.priority == priority)
+    
+    # Count completed tasks from the filtered query
+    completed_count = completed_query.filter(Task.is_completed == True).count()
+    
+    # Count pending tasks from the filtered query
+    pending_count = completed_query.filter(Task.is_completed == False).count()
     
     return TaskListResponse(
         data=tasks,
