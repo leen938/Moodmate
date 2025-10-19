@@ -7,12 +7,14 @@ import time, traceback, sys
 from app.database import Base, engine
 
 # ✅ import models BEFORE create_all so metadata includes them
-from app.models import user, mood, task
+# Import models BEFORE create_all so tables are discovered
+from app.models import user, mood, task, hack
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)
 
-from app.routes import user, mood, task, resources, profile  # (routes can come after)
+# Routers can be imported after Base metadata is ready
+from app.routes import user, mood, task, resources, profile, hack as hack_routes  # (routes can come after)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -55,6 +57,7 @@ app.include_router(mood.router, prefix="/mood", tags=["Mood"])
 app.include_router(task.router, prefix="/tasks", tags=["Tasks"])
 app.include_router(resources.router, prefix="/resources", tags=["Resources"])
 app.include_router(profile.router, prefix="/profile", tags=["Profile"])
+app.include_router(hack_routes.router, prefix="/hacks", tags=["Hacks"])
 
 # Health check route
 @app.get("/")
