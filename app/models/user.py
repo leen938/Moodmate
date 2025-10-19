@@ -16,6 +16,11 @@ class User(Base):
     password_hash = Column(Text, nullable=False)                # bcrypt hash
     avatar = Column(Text, nullable=True)                        # URL
     preferences = Column(JSON, nullable=False, default=dict)    # Free-form
+    theme = Column(String, default="light")  
+    notification_style = Column(String, default="email")  
+    reminder_frequency = Column(String, default="daily")  
+    privacy_toggle = Column(String, default="public")
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
