@@ -23,10 +23,12 @@ async def detect_emotions_from_text(text: str) -> Dict[str, Any]:
     Returns:
         Dictionary containing emotion detection results
         Expected format: {
-            "emotions": ["happy", "excited", ...],
-            "mood_level": 4,  # 1-5 scale
-            "confidence": 0.85,
-            "tags": ["positive", "energetic"]
+            "emotion": "happy",  # Primary emotion detected
+            "emotion_level": 8,  # Emotion intensity level (1-10)
+            "mood_level": 4,  # Converted to 1-5 scale for mood entries
+            "confidence": 1.0,  # Confidence (derived from emotion_level)
+            "tags": ["happy"],  # Tags based on emotion
+            "emotions": ["happy"]  # List format for compatibility
         }
         
     Raises:
@@ -84,50 +86,101 @@ def format_emotion_result(raw_result: Dict[str, Any]) -> Dict[str, Any]:
     Format the raw emotion detection result into a standardized format.
     
     Expected input format from teammate's AI model:
-    - Option 1: {"emotion1": 0.85, "emotion2": 0.10, ...}  (dict with emotion names as keys, probabilities as values)
-    - Option 2: [{"emotion": "happy", "probability": 0.85}, ...]  (list of dicts)
-    - Option 3: {"emotions": {"happy": 0.85, "sad": 0.10}}  (nested dict)
+    {
+        "emotion": "happy",  # Emotion name/title
+        "emotion_level": 8   # Emotion intensity level (1-10)
+    }
     
     Returns standardized format:
     {
-        "emotions": ["happy", "excited"],
-        "mood_level": 4,  # 1-5 scale
-        "confidence": 0.85,
-        "tags": ["happy", "excited"]
+        "emotion": "happy",
+        "emotion_level": 8,  # 1-10 scale (original from AI model)
+        "emotions": ["happy"],  # List format for compatibility
+        "mood_level": 4,  # Converted to 1-5 scale for mood entries
+        "confidence": 0.8,  # Derived from emotion_level (emotion_level / 10)
+        "tags": ["happy"]
     }
     """
-    # Extract emotions and probabilities from various possible formats
-    emotion_probs = {}
-    
-    # Handle different input formats
+    # Handle the new format: emotion + emotion_level (1-10)
     if isinstance(raw_result, dict):
-        # Check if it's a nested structure
+        emotion = raw_result.get("emotion") or raw_result.get("emotion_title") or raw_result.get("title")
+        emotion_level = raw_result.get("emotion_level") or raw_result.get("level") or raw_result.get("emotionLevel")
+        
+        # If we have both emotion and emotion_level, use the new format
+        if emotion and emotion_level is not None:
+            try:
+                emotion_level = int(emotion_level)
+                # Ensure emotion_level is within valid range (1-10)
+                emotion_level = max(1, min(10, emotion_level))
+                
+                # Convert emotion_level (1-10) to mood_level (1-5)
+                mood_level = _convert_emotion_level_to_mood_level(emotion_level)
+                
+                # Calculate confidence from emotion_level (normalize to 0-1)
+                confidence = emotion_level / 10.0
+                
+                return {
+                    "emotion": emotion,
+                    "emotion_level": emotion_level,
+                    "emotions": [emotion],  # List format for compatibility
+                    "mood_level": mood_level,
+                    "confidence": confidence,
+                    "tags": [emotion],
+                    "raw_result": raw_result
+                }
+            except (ValueError, TypeError):
+                pass  # Fall through to backward compatibility handling
+        
+        # Backward compatibility: Handle old probability-based formats
+        # Check if it's a nested structure with probabilities
         if "emotions" in raw_result and isinstance(raw_result["emotions"], dict):
             emotion_probs = raw_result["emotions"]
-        # Check if keys are emotion names (strings) and values are numbers
+            return _format_probability_based_result(emotion_probs, raw_result)
+        # Check if keys are emotion names (strings) and values are probabilities
         elif all(isinstance(k, str) and isinstance(v, (int, float)) for k, v in raw_result.items()):
-            emotion_probs = raw_result
-        # Check if it's already in the expected format (backward compatibility)
+            return _format_probability_based_result(raw_result, raw_result)
+        # Check if it's already in the expected format
         elif "emotions" in raw_result and isinstance(raw_result["emotions"], list):
             return {
+                "emotion": raw_result.get("emotion", ""),
+                "emotion_level": raw_result.get("emotion_level", 5),
                 "emotions": raw_result.get("emotions", []),
                 "mood_level": raw_result.get("mood_level", 3),
                 "confidence": raw_result.get("confidence", 0.0),
                 "tags": raw_result.get("tags", []),
                 "raw_result": raw_result
             }
+    
     elif isinstance(raw_result, list):
         # Handle list format: [{"emotion": "happy", "probability": 0.85}, ...]
+        emotion_probs = {}
         for item in raw_result:
             if isinstance(item, dict):
                 emotion = item.get("emotion") or item.get("title") or item.get("name")
                 prob = item.get("probability") or item.get("prob") or item.get("score")
                 if emotion and prob is not None:
                     emotion_probs[emotion] = float(prob)
+        if emotion_probs:
+            return _format_probability_based_result(emotion_probs, raw_result)
     
-    # If no emotions found, return default
+    # Default fallback if format is not recognized
+    return {
+        "emotion": "neutral",
+        "emotion_level": 5,
+        "emotions": ["neutral"],
+        "mood_level": 3,
+        "confidence": 0.5,
+        "tags": ["neutral"],
+        "raw_result": raw_result
+    }
+
+
+def _format_probability_based_result(emotion_probs: Dict[str, float], raw_result: Dict[str, Any]) -> Dict[str, Any]:
+    """Helper function to format probability-based emotion results (backward compatibility)."""
     if not emotion_probs:
         return {
+            "emotion": "neutral",
+            "emotion_level": 5,
             "emotions": [],
             "mood_level": 3,
             "confidence": 0.0,
@@ -138,31 +191,61 @@ def format_emotion_result(raw_result: Dict[str, Any]) -> Dict[str, Any]:
     # Sort emotions by probability (highest first)
     sorted_emotions = sorted(emotion_probs.items(), key=lambda x: x[1], reverse=True)
     
+    # Get top emotion
+    top_emotion = sorted_emotions[0][0] if sorted_emotions else "neutral"
+    highest_prob = sorted_emotions[0][1] if sorted_emotions else 0.0
+    
+    # Convert probability to emotion_level (1-10)
+    emotion_level = int(round(highest_prob * 10))
+    emotion_level = max(1, min(10, emotion_level))
+    
+    # Convert to mood_level (1-5)
+    mood_level = _convert_emotion_level_to_mood_level(emotion_level)
+    
     # Get top emotions (above 0.1 threshold or top 3)
     threshold = 0.1
     top_emotions = [emotion for emotion, prob in sorted_emotions if prob >= threshold]
     if not top_emotions:
-        # If no emotions above threshold, take top 3
         top_emotions = [emotion for emotion, prob in sorted_emotions[:3]]
     
-    # Get highest probability as confidence
-    highest_prob = sorted_emotions[0][1] if sorted_emotions else 0.0
-    
-    # Map emotions to mood level (1-5 scale)
-    mood_level = _map_emotions_to_mood_level(emotion_probs, sorted_emotions)
-    
     return {
+        "emotion": top_emotion,
+        "emotion_level": emotion_level,
         "emotions": top_emotions,
         "mood_level": mood_level,
         "confidence": float(highest_prob),
-        "tags": top_emotions,  # Use emotions as tags
-        "raw_result": raw_result  # Include raw result for debugging
+        "tags": top_emotions,
+        "raw_result": raw_result
     }
+
+
+def _convert_emotion_level_to_mood_level(emotion_level: int) -> int:
+    """
+    Convert emotion level (1-10 scale) to mood level (1-5 scale).
+    
+    Mapping:
+    - 1-2 (very low) -> 1 (very bad)
+    - 3-4 (low) -> 2 (bad)
+    - 5-6 (medium) -> 3 (neutral)
+    - 7-8 (high) -> 4 (good)
+    - 9-10 (very high) -> 5 (excellent)
+    """
+    if emotion_level <= 2:
+        return 1
+    elif emotion_level <= 4:
+        return 2
+    elif emotion_level <= 6:
+        return 3
+    elif emotion_level <= 8:
+        return 4
+    else:  # 9-10
+        return 5
 
 
 def _map_emotions_to_mood_level(emotion_probs: Dict[str, float], sorted_emotions: list) -> int:
     """
-    Map detected emotions to a mood level (1-5 scale).
+    Map detected emotions to a mood level (1-5 scale) based on emotion categories.
+    This is used for backward compatibility with probability-based formats.
     
     Positive emotions (happy, joyful, excited, content, calm) -> 4-5
     Neutral emotions (neutral, calm, content) -> 3

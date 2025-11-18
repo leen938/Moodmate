@@ -50,9 +50,11 @@ async def analyze_voice(
     
     **Response:**
     - `transcribed_text`: The transcribed text
+    - `emotion`: Primary detected emotion
+    - `emotion_level`: Emotion intensity level (1-10)
     - `emotions`: List of detected emotions
-    - `mood_level`: Mood level (1-5)
-    - `confidence`: Confidence score (0-1)
+    - `mood_level`: Mood level (1-5) - converted from emotion_level
+    - `confidence`: Confidence score (0-1) - derived from emotion_level
     - `tags`: Generated tags
     - `mood_entry`: Created mood entry (if saved)
     """
@@ -106,12 +108,15 @@ async def analyze_voice(
             )
         
         # Extract emotion data
-        emotions = emotion_result.get("emotions", [])
+        emotion = emotion_result.get("emotion", "neutral")
+        emotion_level = emotion_result.get("emotion_level", 5)
+        emotions = emotion_result.get("emotions", [emotion] if emotion else [])
         mood_level = emotion_result.get("mood_level", 3)
         confidence = emotion_result.get("confidence", 0.0)
-        tags = emotion_result.get("tags", [])
+        tags = emotion_result.get("tags", [emotion] if emotion else [])
         
-        # Ensure mood_level is within valid range
+        # Ensure values are within valid ranges
+        emotion_level = max(1, min(10, int(emotion_level)))
         mood_level = max(1, min(5, int(mood_level)))
         
         # Step 3: Optionally save as mood entry
@@ -184,6 +189,8 @@ async def analyze_voice(
         return VoiceAnalysisResponse(
             success=True,
             transcribed_text=transcribed_text,
+            emotion=emotion,
+            emotion_level=emotion_level,
             emotions=emotions,
             mood_level=mood_level,
             confidence=confidence,
