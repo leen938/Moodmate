@@ -18,12 +18,101 @@ from app.schemas.voice import VoiceAnalysisResponse
 from app.schemas.mood import MoodResponse
 from app.services.speech_to_text import transcribe_audio
 from app.services.emotion_detection import detect_emotions_from_text
+from pydantic import BaseModel
 
 router = APIRouter()
+
+
+class TranscriptionResponse(BaseModel):
+    """Response schema for transcription endpoint"""
+    success: bool
+    transcribed_text: str
+    language: Optional[str] = None
+    message: Optional[str] = None
 
 # Allowed audio file extensions
 ALLOWED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm", ".mp4"}
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB (OpenAI Whisper limit)
+
+
+@router.post("/transcribe", response_model=TranscriptionResponse, status_code=status.HTTP_200_OK)
+async def transcribe_voice(
+    audio_file: UploadFile = File(..., description="Audio file to transcribe"),
+    language: Optional[str] = Form(None, description="Optional language code (e.g., 'en', 'ar') for better accuracy"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Transcribe a voice recording to text (speech-to-text only, no emotion detection).
+    
+    **Process:**
+    1. Upload audio file (mp3, wav, m4a, ogg, flac, webm, mp4)
+    2. Transcribe audio to text using OpenAI Whisper or local model
+    
+    **Request:**
+    - `audio_file`: Audio file (multipart/form-data)
+    - `language`: Optional language code (e.g., 'en', 'ar') for better accuracy
+    
+    **Response:**
+    - `transcribed_text`: The transcribed text
+    - `language`: Detected or specified language
+    - `success`: Whether transcription was successful
+    """
+    # Validate file extension
+    file_extension = os.path.splitext(audio_file.filename)[1].lower()
+    if file_extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file format. Allowed formats: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+    
+    # Create temporary file to store uploaded audio
+    temp_file_path = None
+    try:
+        # Read file content
+        content = await audio_file.read()
+        
+        # Check file size
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Maximum size: {MAX_FILE_SIZE / (1024*1024):.1f} MB"
+            )
+        
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        # Transcribe audio to text
+        try:
+            transcribed_text = await transcribe_audio(temp_file_path, language=language)
+            if not transcribed_text or not transcribed_text.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Could not transcribe audio. Please ensure the audio contains clear speech."
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Transcription failed: {str(e)}"
+            )
+        
+        return TranscriptionResponse(
+            success=True,
+            transcribed_text=transcribed_text,
+            language=language,
+            message="Transcription completed successfully"
+        )
+    
+    finally:
+        # Clean up temporary file
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except Exception:
+                pass  # Ignore cleanup errors
 
 
 @router.post("/analyze", response_model=VoiceAnalysisResponse, status_code=status.HTTP_200_OK)
