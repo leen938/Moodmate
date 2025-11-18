@@ -14,7 +14,7 @@ from app.models import user, mood, task, hack
 Base.metadata.create_all(bind=engine)
 
 # Routers can be imported after Base metadata is ready
-from app.routes import user, mood, task, resources, profile, hack as hack_routes  # (routes can come after)
+from app.routes import user, mood, task, resources, profile, hack as hack_routes, voice  # (routes can come after)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -58,6 +58,7 @@ app.include_router(task.router, prefix="/tasks", tags=["Tasks"])
 app.include_router(resources.router, prefix="/resources", tags=["Resources"])
 app.include_router(profile.router, prefix="/profile", tags=["Profile"])
 app.include_router(hack_routes.router, prefix="/hacks", tags=["Hacks"])
+app.include_router(voice.router, prefix="/voice", tags=["Voice Analysis"])
 
 # Health check route
 @app.get("/")
