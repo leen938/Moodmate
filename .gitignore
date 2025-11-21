@@ -15,3 +15,9 @@ OPENAI_API_KEY=sk-proj-49214Z20YjVLksBks3LirU8YyMvsaFbhUiOYu4rOjofMggsQvfBJAZMJe
 WHISPER_MODEL=whisper-1
 EMOTION_API_URL=http://localhost:5000/predict
 EMOTION_API_TIMEOUT=30
+
+.venv/
+venv311/
+# Ignore large model weights
+app/models/bert_emotion_model/model.safetensors
+*.safetensors

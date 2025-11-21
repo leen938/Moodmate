@@ -1,14 +1,15 @@
+from typing import List
 from pydantic import BaseModel
-from typing import List, Dict
 
+# just for reference
 class EmotionRequest(BaseModel):
     text: str
 
-class AlternativeEmotion(BaseModel):
+class EmotionAlternative(BaseModel):
     emotion: str
     probability: float
 
 class EmotionResponse(BaseModel):
     primary_emotion: str
     confidence: float
-    alternative_emotions: List[AlternativeEmotion]
+    alternative_emotions: List[EmotionAlternative]
