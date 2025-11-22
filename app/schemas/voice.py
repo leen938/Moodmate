@@ -23,5 +23,5 @@ class VoiceAnalysisResponse(BaseModel):
 class VoiceAnalysisRequest(BaseModel):
     """Request schema for voice analysis (optional, mainly for documentation)"""
     save_to_mood: bool = Field(True, description="Whether to automatically save as mood entry")
-    date: Optional[date] = Field(None, description="Date for mood entry (defaults to today)")
+    date: Optional[str] = Field(None, description="Date for mood entry (YYYY-MM-DD format, defaults to today)")
 
