@@ -5,15 +5,30 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.moodmate.data.local.TokenManager
 import com.moodmate.navigation.Screen
 import com.moodmate.ui.components.BottomNavBar
 import com.moodmate.ui.components.CustomTopAppBar
@@ -21,10 +36,16 @@ import com.moodmate.ui.theme.PurplePrimary
 import com.moodmate.ui.theme.White
 
 @Composable
-fun ProfileScreen(navController: NavController) {
+fun ProfileScreen(
+    navController: NavController,
+    tokenManager: TokenManager = TokenManager(LocalContext.current)
+) {
+    // Read username from DataStore / TokenManager
+    val username by tokenManager.username.collectAsState(initial = "User")
+
     Column(modifier = Modifier.fillMaxSize()) {
         CustomTopAppBar(title = "Profile")
-        
+
         Scaffold(
             bottomBar = { BottomNavBar(navController) }
         ) { padding ->
@@ -36,7 +57,8 @@ fun ProfileScreen(navController: NavController) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // Profile Header
+
+                // Profile header card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -60,23 +82,24 @@ fun ProfileScreen(navController: NavController) {
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                Icons.Default.Person,
+                                imageVector = Icons.Default.Person,
                                 contentDescription = "Profile",
                                 tint = White,
                                 modifier = Modifier.size(48.dp)
                             )
                         }
-                        
+
+                        // Username text
                         Text(
-                            "Username",
+                            text = username ?: "User",
                             style = MaterialTheme.typography.headlineSmall,
                             color = White,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
-                
-                // Settings
+
+                // Menu items
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -84,18 +107,25 @@ fun ProfileScreen(navController: NavController) {
                     ProfileMenuItem(
                         icon = Icons.Default.Settings,
                         title = "Settings",
-                        onClick = { }
+                        onClick = {
+                            navController.navigate(Screen.Settings.route)
+                        }
                     )
+
                     ProfileMenuItem(
                         icon = Icons.Default.Info,
                         title = "About",
-                        onClick = { }
+                        onClick = {
+                            navController.navigate(Screen.About.route)
+                        }
                     )
+
                     ProfileMenuItem(
                         icon = Icons.Default.ExitToApp,
                         title = "Logout",
                         onClick = {
-                            // TODO: Logout
+                            // Optional: launch a coroutine to clear token
+                            // e.g. rememberCoroutineScope().launch { tokenManager.clearToken() }
                             navController.navigate(Screen.Login.route) {
                                 popUpTo(Screen.Home.route) { inclusive = true }
                             }
@@ -107,6 +137,7 @@ fun ProfileScreen(navController: NavController) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileMenuItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -124,26 +155,29 @@ fun ProfileMenuItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                icon,
+                imageVector = icon,
                 contentDescription = title,
                 tint = PurplePrimary,
                 modifier = Modifier.size(24.dp)
             )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
             Text(
-                title,
+                text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.weight(1f)
             )
+
             Icon(
-                Icons.Default.ChevronRight,
+                imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
         }
     }
 }
-

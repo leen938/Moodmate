@@ -15,6 +15,9 @@ sealed class Screen(val route: String) {
     object AddTask : Screen("add_task")
     object Hacks : Screen("hacks")
     object Profile : Screen("profile")
+    object Settings : Screen("settings")
+    object About : Screen("about")
+
 }
 
 @Composable
@@ -47,6 +50,14 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Profile.route) {
             ProfileScreen(navController = navController)
         }
+        composable(Screen.Settings.route) {
+            SettingsScreen(navController)
+        }
+
+        composable(Screen.About.route) {
+            AboutScreen(navController)
+        }
+
     }
 }
 

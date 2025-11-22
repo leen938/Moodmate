@@ -17,14 +17,14 @@ data class LoginUiState(
 )
 
 class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
-    
+
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
-    
+
     fun login(username: String, password: String, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = false)
-            
+
             try {
                 val response = RetrofitClient.apiService.loginOrSignup(
                     com.moodmate.data.model.LoginRequest(
@@ -32,19 +32,25 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
                         password = password
                     )
                 )
-                
+
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
                     if (body.success && body.data != null) {
+
                         val token = body.data.token
-                        // Save token
+
+                        // ⭐ Save token + userId + username
                         tokenManager.saveToken(
-                            token,
-                            body.data.user.id
+                            token = token,
+                            userId = body.data.user.id,
+                            username = body.data.user.username
                         )
-                        // Set token in Retrofit client
+
+
+
+                        // Set token for API
                         RetrofitClient.setAuthToken(token)
-                        
+
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             success = true,
@@ -52,6 +58,7 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
                             token = token
                         )
                         onSuccess(token)
+
                     } else {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
@@ -74,4 +81,3 @@ class LoginViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 }
-
