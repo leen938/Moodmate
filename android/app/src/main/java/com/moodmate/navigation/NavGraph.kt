@@ -1,6 +1,9 @@
 package com.moodmate.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -18,10 +21,16 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object About : Screen("about")
 
+    object EditProfile : Screen("edit_profile")
+    object ChangePassword : Screen("change_password")
 }
 
 @Composable
-fun NavGraph(navController: NavHostController) {
+fun NavGraph(
+    navController: NavHostController,
+    isDarkTheme: Boolean,
+    onDarkThemeChange: (Boolean) -> Unit
+) {
     NavHost(
         navController = navController,
         startDestination = Screen.Login.route
@@ -50,14 +59,25 @@ fun NavGraph(navController: NavHostController) {
         composable(Screen.Profile.route) {
             ProfileScreen(navController = navController)
         }
+
         composable(Screen.Settings.route) {
-            SettingsScreen(navController)
+            SettingsScreen(
+                navController = navController,
+                isDarkTheme = isDarkTheme,
+                onDarkThemeChange = onDarkThemeChange
+            )
         }
 
         composable(Screen.About.route) {
-            AboutScreen(navController)
+            AboutScreen(navController = navController)
         }
 
+        composable(Screen.EditProfile.route) {
+            EditProfileScreen(navController = navController)
+        }
+
+        composable(Screen.ChangePassword.route) {
+            ChangePasswordScreen(navController = navController)
+        }
     }
 }
-

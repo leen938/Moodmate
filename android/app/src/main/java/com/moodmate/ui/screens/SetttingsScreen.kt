@@ -4,28 +4,46 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.moodmate.ui.components.CustomTopAppBar
+import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(navController: NavController) {
+fun SettingsScreen(
+    navController: NavController,
+    isDarkTheme: Boolean,
+    onDarkThemeChange: (Boolean) -> Unit
+) {
+    // Local state copies (will be applied when the user taps Save)
+    var darkMode by remember { mutableStateOf(isDarkTheme) }
+    var notificationsEnabled by remember { mutableStateOf(true) }
+    var emailNotificationsEnabled by remember { mutableStateOf(false) }
+    var vibrationEnabled by remember { mutableStateOf(true) }
 
-    // Local UI states (you can later connect these to DataStore / ViewModel)
-    var isDarkModeEnabled by remember { mutableStateOf(false) }
-    var isNotificationsEnabled by remember { mutableStateOf(true) }
-    var isEmailNotificationsEnabled by remember { mutableStateOf(false) }
-    var isVibrationEnabled by remember { mutableStateOf(true) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
-        topBar = {
-            CustomTopAppBar("Settings")
-        }
+        topBar = { CustomTopAppBar("Settings") },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -35,14 +53,14 @@ fun SettingsScreen(navController: NavController) {
                 .padding(16.dp)
         ) {
 
-            // GENERAL
+            // ===== GENERAL =====
             SettingsSectionTitle(title = "General")
 
             SettingsSwitchRow(
                 title = "Dark mode",
                 description = "Use dark theme throughout the app",
-                checked = isDarkModeEnabled,
-                onCheckedChange = { isDarkModeEnabled = it } // TODO: persist
+                checked = darkMode,
+                onCheckedChange = { darkMode = it }
             )
 
             SettingsClickableRow(
@@ -55,40 +73,40 @@ fun SettingsScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // NOTIFICATIONS
+            // ===== NOTIFICATIONS =====
             SettingsSectionTitle(title = "Notifications")
 
             SettingsSwitchRow(
                 title = "Push notifications",
                 description = "Receive updates and reminders",
-                checked = isNotificationsEnabled,
-                onCheckedChange = { isNotificationsEnabled = it }
+                checked = notificationsEnabled,
+                onCheckedChange = { notificationsEnabled = it }
             )
 
             SettingsSwitchRow(
                 title = "Email notifications",
                 description = "Get summaries by email",
-                checked = isEmailNotificationsEnabled,
-                onCheckedChange = { isEmailNotificationsEnabled = it }
+                checked = emailNotificationsEnabled,
+                onCheckedChange = { emailNotificationsEnabled = it }
             )
 
             SettingsSwitchRow(
                 title = "Vibration",
                 description = "Vibrate on important alerts",
-                checked = isVibrationEnabled,
-                onCheckedChange = { isVibrationEnabled = it }
+                checked = vibrationEnabled,
+                onCheckedChange = { vibrationEnabled = it }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ACCOUNT
+            // ===== ACCOUNT =====
             SettingsSectionTitle(title = "Account")
 
             SettingsClickableRow(
                 title = "Edit profile",
                 description = "Name, photo, and bio",
                 onClick = {
-                    // TODO: navController.navigate("editProfile")
+                    navController.navigate("edit_profile")
                 }
             )
 
@@ -96,7 +114,7 @@ fun SettingsScreen(navController: NavController) {
                 title = "Change password",
                 description = "Update your password",
                 onClick = {
-                    // TODO: navController.navigate("changePassword")
+                    navController.navigate("change_password")
                 }
             )
 
@@ -110,7 +128,7 @@ fun SettingsScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ABOUT
+            // ===== ABOUT =====
             SettingsSectionTitle(title = "About")
 
             SettingsClickableRow(
@@ -131,59 +149,37 @@ fun SettingsScreen(navController: NavController) {
             SettingsClickableRow(
                 title = "Privacy policy",
                 onClick = {
-                    // TODO: navController.navigate("privacyPolicy")
+                    // TODO: navController.navigate("privacy_policy")
                 }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // DANGER / LOGOUT
-            Divider()
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "Danger zone",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.SemiBold
-                )
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Delete account",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.error
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        // TODO: open confirm delete dialog
-                    }
-                    .padding(vertical = 8.dp)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
+            // ===== SAVE BUTTON =====
             Button(
                 onClick = {
-                    // TODO: clear token, navigate to login screen
-                    // navController.navigate("login") {
-                    //     popUpTo(0)
-                    // }
+                    // Apply settings
+                    onDarkThemeChange(darkMode)
+                    // Later: persist notificationsEnabled, emailNotificationsEnabled, vibrationEnabled
+                    // using DataStore or a ViewModel
+
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar("Settings saved")
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
             ) {
-                Text("Log out")
+                Text("Save")
             }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
+
+// ---------- Helper Composables ----------
 
 @Composable
 private fun SettingsSectionTitle(title: String) {

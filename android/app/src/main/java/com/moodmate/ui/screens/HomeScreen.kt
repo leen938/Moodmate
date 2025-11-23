@@ -17,6 +17,7 @@ import androidx.navigation.NavController
 import com.moodmate.navigation.Screen
 import com.moodmate.ui.components.BottomNavBar
 import com.moodmate.ui.components.CustomTopAppBar
+import com.moodmate.ui.theme.DarkGray
 import com.moodmate.ui.theme.PurpleLight
 import com.moodmate.ui.theme.PurplePrimary
 import com.moodmate.ui.theme.White
@@ -159,17 +160,22 @@ fun QuickActionCard(
 }
 
 @Composable
+
 fun FeatureCard(
     title: String,
     description: String,
     icon: ImageVector,
     onClick: () -> Unit
 ) {
+    val cardColor = MaterialTheme.colorScheme.surface
+    val titleColor = MaterialTheme.colorScheme.onSurface
+    val descriptionColor = MaterialTheme.colorScheme.onSurfaceVariant
+
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = White,
+        color = cardColor,
         shadowElevation = 2.dp
     ) {
         Row(
@@ -187,22 +193,24 @@ fun FeatureCard(
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    title,
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = titleColor
                 )
                 Text(
-                    description,
+                    text = description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    color = descriptionColor
                 )
             }
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
+
 
