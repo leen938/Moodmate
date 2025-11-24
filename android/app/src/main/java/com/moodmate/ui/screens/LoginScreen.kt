@@ -125,6 +125,7 @@ fun LoginScreen(navController: NavController) {
                     // Login Button
                     Button(
                         onClick = {
+                            //navController.navigate("home")
                             viewModel.login(username, password) {
                                 // Token is set in ViewModel
                             }

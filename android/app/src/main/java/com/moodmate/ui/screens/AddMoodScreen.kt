@@ -37,19 +37,39 @@ fun AddMoodScreen(navController: NavController) {
             )
             
             // Mood Selector
-            Row(
+            // Mood Selector: 2 rows of 5
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                (1..5).forEach { level ->
-                    MoodButton(
-                        level = level,
-                        isSelected = selectedMood == level,
-                        onClick = { selectedMood = level }
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    (1..5).forEach { level ->
+                        MoodButton(
+                            level = level,
+                            isSelected = selectedMood == level,
+                            onClick = { selectedMood = level }
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    (6..10).forEach { level ->
+                        MoodButton(
+                            level = level,
+                            isSelected = selectedMood == level,
+                            onClick = { selectedMood = level }
+                        )
+                    }
                 }
             }
-            
+
             // Notes
             OutlinedTextField(
                 value = notes,
@@ -87,13 +107,18 @@ fun AddMoodScreen(navController: NavController) {
 fun MoodButton(level: Int, isSelected: Boolean, onClick: () -> Unit) {
     val emoji = when (level) {
         1 -> "😢"
-        2 -> "😕"
-        3 -> "😐"
-        4 -> "🙂"
-        5 -> "😄"
+        2 -> "😣"
+        3 -> "😥"
+        4 -> "😕"
+        5 -> "😐"
+        6 -> "🙂"
+        7 -> "😎"
+        8 -> "🤭"
+        9 -> "☺️"
+        10 -> "😄"
         else -> "😐"
     }
-    
+
     Surface(
         onClick = onClick,
         modifier = Modifier.size(64.dp),
