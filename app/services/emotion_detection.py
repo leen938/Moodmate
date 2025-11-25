@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration for emotion detection API
-EMOTION_API_URL = os.getenv("EMOTION_API_URL", "http://localhost:5000/predict")
+EMOTION_API_URL = os.getenv("EMOTION_API_URL", "http://0.0.0.0:8000/emotion/emotion/analyze")
 EMOTION_API_TIMEOUT = int(os.getenv("EMOTION_API_TIMEOUT", "30"))
 
 
@@ -41,23 +41,47 @@ async def detect_emotions_from_text(text: str) -> Dict[str, Any]:
                 import httpx
             except ImportError:
                 # Fallback to requests if httpx not available
-                import requests
-                response = requests.post(
-                    EMOTION_API_URL,
-                    json={"text": text},
-                    timeout=EMOTION_API_TIMEOUT
-                )
-                response.raise_for_status()
-                return format_emotion_result(response.json())
+                try:
+                    import requests
+                    response = requests.post(
+                        EMOTION_API_URL,
+                        json={"text": text},
+                        timeout=EMOTION_API_TIMEOUT
+                    )
+                    response.raise_for_status()
+                    return format_emotion_result(response.json())
+                except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                    # If API is not available, fall back to simple emotion detection
+                    print(f"WARNING: Emotion API at {EMOTION_API_URL} is not available ({type(e).__name__}). Using fallback emotion detection.")
+                    return _fallback_emotion_detection(text)
+                except Exception as e:
+                    # For other request errors, try fallback
+                    error_msg = str(e)
+                    if any(keyword in error_msg.lower() for keyword in ["connect", "connection", "timeout", "refused", "unreachable"]):
+                        print(f"WARNING: Emotion API at {EMOTION_API_URL} is not available. Using fallback emotion detection.")
+                        return _fallback_emotion_detection(text)
+                    raise
             
             # Use async httpx for better performance
-            async with httpx.AsyncClient(timeout=EMOTION_API_TIMEOUT) as client:
-                response = await client.post(
-                    EMOTION_API_URL,
-                    json={"text": text}
-                )
-                response.raise_for_status()
-                return format_emotion_result(response.json())
+            try:
+                async with httpx.AsyncClient(timeout=EMOTION_API_TIMEOUT) as client:
+                    response = await client.post(
+                        EMOTION_API_URL,
+                        json={"text": text}
+                    )
+                    response.raise_for_status()
+                    return format_emotion_result(response.json())
+            except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as e:
+                # If API is not available, fall back to simple emotion detection
+                print(f"WARNING: Emotion API at {EMOTION_API_URL} is not available ({type(e).__name__}). Using fallback emotion detection.")
+                return _fallback_emotion_detection(text)
+            except Exception as e:
+                # For other httpx errors, check if it's connection-related
+                error_msg = str(e)
+                if any(keyword in error_msg.lower() for keyword in ["connect", "connection", "timeout", "refused", "unreachable"]):
+                    print(f"WARNING: Emotion API at {EMOTION_API_URL} is not available. Using fallback emotion detection.")
+                    return _fallback_emotion_detection(text)
+                raise
         
         # Option 2: Local file-based model (if the model is a local file)
         # This is a placeholder - you'll need to implement based on your teammate's model format
@@ -76,6 +100,10 @@ async def detect_emotions_from_text(text: str) -> Dict[str, Any]:
     except Exception as e:
         # Handle both httpx and requests exceptions
         error_msg = str(e)
+        # If connection fails, use fallback emotion detection
+        if "connect" in error_msg.lower() or "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+            print(f"WARNING: Emotion API at {EMOTION_API_URL} is not available. Using fallback emotion detection.")
+            return _fallback_emotion_detection(text)
         if "httpx" in error_msg.lower() or "request" in error_msg.lower():
             raise Exception(f"Failed to call emotion detection API: {error_msg}")
         raise Exception(f"Error in emotion detection: {error_msg}")
@@ -216,6 +244,67 @@ def _format_probability_based_result(emotion_probs: Dict[str, float], raw_result
         "confidence": float(highest_prob),
         "tags": top_emotions,
         "raw_result": raw_result
+    }
+
+
+def _fallback_emotion_detection(text: str) -> Dict[str, Any]:
+    """
+    Simple fallback emotion detection when the API is not available.
+    Uses keyword matching to detect basic emotions.
+    
+    Returns emotion and emotion_level (1-10) based on text content.
+    """
+    text_lower = text.lower()
+    
+    # Define emotion keywords and their intensity
+    emotion_keywords = {
+        "happy": ["happy", "joy", "joyful", "glad", "cheerful", "excited", "great", "wonderful", "amazing", "love", "good", "sunny", "nice"],
+        "sad": ["sad", "depressed", "down", "unhappy", "miserable", "terrible", "awful", "bad", "horrible"],
+        "angry": ["angry", "mad", "furious", "annoyed", "frustrated", "irritated"],
+        "anxious": ["anxious", "worried", "nervous", "stressed", "scared", "afraid", "fear"],
+        "calm": ["calm", "peaceful", "relaxed", "content", "serene", "tranquil"],
+        "neutral": ["okay", "fine", "alright", "normal", "neutral"]
+    }
+    
+    # Count matches for each emotion
+    emotion_scores = {}
+    for emotion, keywords in emotion_keywords.items():
+        score = sum(1 for keyword in keywords if keyword in text_lower)
+        if score > 0:
+            emotion_scores[emotion] = score
+    
+    # Determine primary emotion
+    if emotion_scores:
+        primary_emotion = max(emotion_scores, key=emotion_scores.get)
+        max_score = emotion_scores[primary_emotion]
+        
+        # Convert score to emotion_level (1-10)
+        # More keywords matched = higher intensity
+        if max_score >= 3:
+            emotion_level = 8  # High intensity
+        elif max_score >= 2:
+            emotion_level = 6  # Medium-high intensity
+        else:
+            emotion_level = 5  # Medium intensity
+        
+        # Adjust based on emotion type
+        if primary_emotion in ["happy", "calm"]:
+            emotion_level = min(10, emotion_level + 1)  # Boost positive emotions
+        elif primary_emotion in ["sad", "angry", "anxious"]:
+            emotion_level = max(1, emotion_level - 1)  # Lower negative emotions slightly
+    else:
+        # No emotion keywords found, default to neutral
+        primary_emotion = "neutral"
+        emotion_level = 5
+    
+    return {
+        "emotion": primary_emotion,
+        "emotion_level": emotion_level,
+        "emotions": [primary_emotion],
+        "mood_level": _convert_emotion_level_to_mood_level(emotion_level),
+        "confidence": emotion_level / 10.0,
+        "tags": [primary_emotion],
+        "raw_result": {"emotion": primary_emotion, "emotion_level": emotion_level}
     }
 
 

@@ -18,16 +18,18 @@ from app.schemas.voice import VoiceAnalysisResponse
 from app.schemas.mood import MoodResponse
 from app.services.speech_to_text import transcribe_audio
 from app.services.emotion_detection import detect_emotions_from_text
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 router = APIRouter()
 
 
 class TranscriptionResponse(BaseModel):
-    """Response schema for transcription endpoint"""
+    """Response schema for transcription endpoint with emotion analysis"""
     success: bool
     transcribed_text: str
     language: Optional[str] = None
+    emotion: Optional[str] = None  # Primary detected emotion
+    emotion_level: Optional[int] = Field(None, ge=1, le=10, description="Emotion intensity level (1-10)")
     message: Optional[str] = None
 
 # Allowed audio file extensions
@@ -58,18 +60,39 @@ async def transcribe_voice(
     - `success`: Whether transcription was successful
     """
     # Validate file extension
-    file_extension = os.path.splitext(audio_file.filename)[1].lower()
+    filename = audio_file.filename or "audio.m4a"  # Default to m4a if no filename
+    file_extension = os.path.splitext(filename)[1].lower()
+    
+    # If no extension, default to .m4a (common for Android recordings)
+    if not file_extension:
+        file_extension = ".m4a"
+    
     if file_extension not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file format. Allowed formats: {', '.join(ALLOWED_EXTENSIONS)}"
+            detail=f"Unsupported file format. Allowed formats: {', '.join(ALLOWED_EXTENSIONS)}. Received: {file_extension}"
         )
     
     # Create temporary file to store uploaded audio
     temp_file_path = None
     try:
         # Read file content
+        print(f"DEBUG /voice/transcribe: Reading audio file. Filename: {filename}, Content-Type: {audio_file.content_type}")
         content = await audio_file.read()
+        print(f"DEBUG /voice/transcribe: Read {len(content)} bytes from audio file")
+        
+        # Validate audio file size (very small files might not have enough audio)
+        if len(content) < 1000:  # Less than 1KB is likely too small
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Audio file is too small. Please record at least 1-2 seconds of clear speech."
+            )
+        
+        if len(content) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Audio file is empty"
+            )
         
         # Check file size
         if len(content) > MAX_FILE_SIZE:
@@ -82,28 +105,64 @@ async def transcribe_voice(
         with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
             temp_file.write(content)
             temp_file_path = temp_file.name
+        print(f"DEBUG /voice/transcribe: Saved audio to temporary file: {temp_file_path}")
         
         # Transcribe audio to text
         try:
+            print(f"DEBUG /voice/transcribe: Starting transcription...")
             transcribed_text = await transcribe_audio(temp_file_path, language=language)
+            print(f"DEBUG /voice/transcribe: Transcription completed. Text length: {len(transcribed_text) if transcribed_text else 0}")
             if not transcribed_text or not transcribed_text.strip():
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Could not transcribe audio. Please ensure the audio contains clear speech."
+                    detail="Could not transcribe audio. The audio may be too short, too quiet, contain no speech, or have poor quality. Please try recording again with clear speech in a quiet environment."
                 )
         except HTTPException:
             raise
         except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"Transcription error: {str(e)}")
+            print(f"Traceback: {error_trace}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Transcription failed: {str(e)}"
             )
         
+        # Analyze emotions from transcribed text
+        emotion = None
+        emotion_level = None
+        try:
+            print(f"DEBUG /voice/transcribe: Analyzing emotions from transcribed text: '{transcribed_text[:100]}...'")
+            emotion_result = await detect_emotions_from_text(transcribed_text)
+            print(f"DEBUG /voice/transcribe: Raw emotion result: {emotion_result}")
+            
+            # Extract emotion and emotion_level from the formatted result
+            emotion = emotion_result.get("emotion", "neutral")
+            emotion_level = emotion_result.get("emotion_level", 5)
+            
+            # Ensure emotion_level is valid (1-10)
+            if emotion_level is not None:
+                emotion_level = max(1, min(10, int(emotion_level)))
+            
+            print(f"DEBUG /voice/transcribe: Emotion detected - {emotion} (level: {emotion_level})")
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"WARNING /voice/transcribe: Emotion detection failed: {str(e)}")
+            print(f"WARNING /voice/transcribe: Traceback: {error_trace}")
+            # Don't fail the whole request if emotion detection fails
+            # Just return transcription without emotion data
+            emotion = None
+            emotion_level = None
+        
         return TranscriptionResponse(
             success=True,
             transcribed_text=transcribed_text,
             language=language,
-            message="Transcription completed successfully"
+            emotion=emotion,
+            emotion_level=emotion_level,
+            message="Transcription and emotion analysis completed successfully" if emotion else "Transcription completed successfully"
         )
     
     finally:

@@ -26,8 +26,13 @@ object RetrofitClient {
         val original = chain.request()
         val token = authToken
         
+        // Only set Content-Type for non-multipart requests
+        val contentType = original.body?.contentType()?.toString()
         val requestBuilder = original.newBuilder()
-            .header("Content-Type", "application/json")
+        
+        if (contentType?.contains("multipart") != true && contentType?.contains("application/octet-stream") != true) {
+            requestBuilder.header("Content-Type", "application/json")
+        }
         
         token?.let {
             requestBuilder.header("Authorization", "Bearer $it")

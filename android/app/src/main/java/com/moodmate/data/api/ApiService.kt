@@ -1,6 +1,8 @@
 package com.moodmate.data.api
 
 import com.moodmate.data.model.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -94,6 +96,14 @@ interface ApiService {
     
     @DELETE("hacks/{id}")
     suspend fun deleteHack(@Path("id") id: Int): Response<ApiResponse<Map<String, String>>>
+    
+    // Voice Transcription
+    @Multipart
+    @POST("voice/transcribe")
+    suspend fun transcribeVoice(
+        @Part audioFile: MultipartBody.Part,
+        @Part("language") language: RequestBody?
+    ): Response<TranscriptionResponse>
     
     // Health
     @GET("/")

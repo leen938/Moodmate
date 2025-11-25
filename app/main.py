@@ -50,13 +50,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Add this import
-#rom routes.emotion_routes import router as emotion_router
-from app.routes.emotion_routes import router as emotion_router
-
-# Add with your other router includes
-#pp.include_router(emotion_router)
-app.include_router(emotion_router, prefix="/emotion", tags=["Emotion"])
+# Emotion routes using PyTorch/BERT - disabled until torch is installed
+# from app.routes.emotion_routes import router as emotion_router
+# app.include_router(emotion_router, prefix="/emotion", tags=["Emotion"])
+# Note: Voice analysis uses app/services/emotion_detection.py instead
 
 
 # Include routers from all features
