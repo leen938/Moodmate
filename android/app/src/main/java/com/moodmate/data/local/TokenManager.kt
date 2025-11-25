@@ -48,6 +48,11 @@ class TokenManager(private val context: Context) {
             preferences[USER_ID_KEY] = userId
         }
     }
+    suspend fun saveUsername(username: String) {
+        context.dataStore.edit { preferences ->
+            preferences[USERNAME_KEY] = username
+        }
+    }
 
     suspend fun clearToken() {
         context.dataStore.edit { preferences ->

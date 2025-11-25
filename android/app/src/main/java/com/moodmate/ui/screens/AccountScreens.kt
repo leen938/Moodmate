@@ -10,22 +10,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.moodmate.ui.components.CustomTopAppBar
 
-@Composable
-fun EditProfileScreen(navController: NavController) {
-    CustomTopAppBar("Edit Profile")
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.Top,
-        horizontalAlignment = Alignment.Start
-    ) {
-        Text(
-            text = "Edit Profile Screen (TODO: add fields)",
-            style = MaterialTheme.typography.bodyLarge
-        )
-    }
-}
+
 
 @Composable
 fun ChangePasswordScreen(navController: NavController) {

@@ -10,14 +10,7 @@ import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -33,14 +26,13 @@ import com.moodmate.navigation.Screen
 import com.moodmate.ui.components.BottomNavBar
 import com.moodmate.ui.components.CustomTopAppBar
 import com.moodmate.ui.theme.PurplePrimary
-import com.moodmate.ui.theme.White
 
 @Composable
 fun ProfileScreen(
     navController: NavController,
     tokenManager: TokenManager = TokenManager(LocalContext.current)
 ) {
-    // Read username from DataStore / TokenManager
+    // Read username from DataStore
     val username by tokenManager.username.collectAsState(initial = "User")
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -58,7 +50,7 @@ fun ProfileScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
 
-                // Profile header card
+                // Profile header card (Brand purple)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -78,13 +70,13 @@ fun ProfileScreen(
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(CircleShape)
-                                .background(White.copy(alpha = 0.2f)),
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Person,
                                 contentDescription = "Profile",
-                                tint = White,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(48.dp)
                             )
                         }
@@ -93,7 +85,7 @@ fun ProfileScreen(
                         Text(
                             text = username ?: "User",
                             style = MaterialTheme.typography.headlineSmall,
-                            color = White,
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -124,8 +116,6 @@ fun ProfileScreen(
                         icon = Icons.Default.ExitToApp,
                         title = "Logout",
                         onClick = {
-                            // Optional: launch a coroutine to clear token
-                            // e.g. rememberCoroutineScope().launch { tokenManager.clearToken() }
                             navController.navigate(Screen.Login.route) {
                                 popUpTo(Screen.Home.route) { inclusive = true }
                             }
@@ -148,14 +138,13 @@ fun ProfileMenuItem(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -170,13 +159,14 @@ fun ProfileMenuItem(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
 
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
