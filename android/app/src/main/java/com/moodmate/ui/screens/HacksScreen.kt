@@ -2,27 +2,26 @@ package com.moodmate.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.moodmate.navigation.Screen
 import com.moodmate.ui.components.BottomNavBar
 import com.moodmate.ui.components.CustomTopAppBar
 import com.moodmate.ui.theme.PurplePrimary
-import com.moodmate.ui.theme.White
 
 @Composable
 fun HacksScreen(navController: NavController) {
     Column(modifier = Modifier.fillMaxSize()) {
         CustomTopAppBar(title = "Tips & Hacks")
-        
+
         Scaffold(
             bottomBar = { BottomNavBar(navController) }
         ) { padding ->
@@ -35,14 +34,16 @@ fun HacksScreen(navController: NavController) {
             ) {
                 item {
                     Text(
-                        "Wellness tips and tricks",
+                        text = "Wellness tips and tricks",
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
-                
+
                 // Placeholder hacks
-                items(5) { index ->
+                items((0 until 5).toList()) { index ->
                     HackCard(
                         title = "Tip ${index + 1}",
                         content = "This is a helpful tip for improving your mood and wellbeing.",
@@ -60,7 +61,7 @@ fun HackCard(title: String, content: String, category: String?) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = White
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -76,27 +77,28 @@ fun HackCard(title: String, content: String, category: String?) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    title,
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Icon(
-                    Icons.Default.Lightbulb,
+                    imageVector = Icons.Default.Lightbulb,
                     contentDescription = null,
                     tint = PurplePrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
-            
+
             Text(
-                content,
+                text = content,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             category?.let {
                 Text(
-                    it,
+                    text = it,
                     style = MaterialTheme.typography.labelSmall,
                     color = PurplePrimary,
                     modifier = Modifier.padding(top = 4.dp)
@@ -105,4 +107,3 @@ fun HackCard(title: String, content: String, category: String?) {
         }
     }
 }
-

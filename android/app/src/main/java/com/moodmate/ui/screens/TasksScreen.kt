@@ -2,13 +2,14 @@ package com.moodmate.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -18,20 +19,19 @@ import com.moodmate.navigation.Screen
 import com.moodmate.ui.components.BottomNavBar
 import com.moodmate.ui.components.CustomTopAppBar
 import com.moodmate.ui.theme.PurplePrimary
-import com.moodmate.ui.theme.White
 
 @Composable
 fun TasksScreen(navController: NavController) {
     Column(modifier = Modifier.fillMaxSize()) {
         CustomTopAppBar(title = "My Tasks")
-        
+
         Scaffold(
             bottomBar = { BottomNavBar(navController) },
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = { navController.navigate(Screen.AddTask.route) },
                     containerColor = PurplePrimary,
-                    contentColor = White
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Task")
                 }
@@ -46,14 +46,16 @@ fun TasksScreen(navController: NavController) {
             ) {
                 item {
                     Text(
-                        "Your tasks",
+                        text = "Your tasks",
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
-                
+
                 // Placeholder tasks
-                items(5) { index ->
+                items((0 until 5).toList()) { index ->
                     TaskCard(
                         title = "Task ${index + 1}",
                         description = "Task description",
@@ -82,7 +84,7 @@ fun TaskCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = White
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -93,31 +95,42 @@ fun TaskCard(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { /* Toggle completion */ }) {
+            IconButton(onClick = { /* TODO: Toggle */ }) {
                 Icon(
                     if (isCompleted) Icons.Default.CheckCircle else Icons.Default.Circle,
                     contentDescription = if (isCompleted) "Completed" else "Not completed",
-                    tint = if (isCompleted) PurplePrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    tint = if (isCompleted)
+                        PurplePrimary
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
             Column(modifier = Modifier.weight(1f)) {
+                // Title
                 Text(
-                    title,
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isCompleted) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface
+                    color = if (isCompleted)
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    else
+                        MaterialTheme.colorScheme.onSurface
                 )
+
+                // Description
                 description?.let {
                     Text(
-                        it,
+                        text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp)
                     )
                 }
+
+                // Priority label
                 Text(
-                    priority,
+                    text = priority,
                     style = MaterialTheme.typography.labelSmall,
                     color = PurplePrimary,
                     modifier = Modifier.padding(top = 4.dp)
@@ -126,4 +139,3 @@ fun TaskCard(
         }
     }
 }
-
