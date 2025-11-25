@@ -1,75 +1,52 @@
-import torch
-import numpy as np
+# models/emotion_model.py
+import joblib
+import os
+from typing import Dict, List
 
 class EmotionClassifier:
     def __init__(self):
-        from transformers import AutoTokenizer, AutoModelForSequenceClassification
-
-        model_dir = "app/models/bert_emotion_model"  # or your folder
-        self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_dir)
-
-        # device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
-        self.model.eval()
-
-        # build a clean, ordered label list from config
-        id2label = self.model.config.id2label  # e.g. {0: 'sadness', 1: 'joy', ...}
-        # ensure labels are ordered by id: 0 .. num_labels-1
-        self.labels = [id2label[i] for i in range(len(id2label))]
-
-    def predict_emotion(self, text: str) -> dict:
-        """
-        Run BERT on the input text and return:
-        - primary_emotion
-        - confidence
-        - top 3 alternative_emotions (safe, no index errors)
-        """
-
-        # 1) Tokenize
-        encodings = self.tokenizer(
-            text,
-            return_tensors="pt",
-            truncation=True,
-            padding=True,
-            max_length=128,
-        ).to(self.device)
-
-        # 2) Model forward
-        with torch.no_grad():
-            outputs = self.model(**encodings)
-            logits = outputs.logits[0]             # shape: [num_labels]
-
-        # 3) Probabilities
-        probs = torch.softmax(logits, dim=-1).cpu().numpy()  # numpy array [num_labels]
-
-        # 4) Sort classes from highest to lowest probability
-        sorted_indices = np.argsort(probs)[::-1]  # e.g. [3, 1, 0, 2, ...]
-
-        # Primary emotion
-        primary_idx = int(sorted_indices[0])
-        primary_emotion = self.labels[primary_idx]
-        confidence = float(probs[primary_idx])
-
-        # Alternative emotions (next top 3, skipping primary)
-        alternative_emotions = []
-        for idx in sorted_indices[1:4]:
-            idx = int(idx)
-            alternative_emotions.append(
-                {
-                    "emotion": self.labels[idx],
-                    "probability": float(probs[idx]),
-                }
-            )
-
+        # Get the absolute path to model files
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(current_dir, 'emotion_10_classifier.pkl')
+        vectorizer_path = os.path.join(current_dir, 'vectorizer_10.pkl')
+        
+        # Load model and vectorizer
+        self.model = joblib.load(model_path)
+        self.vectorizer = joblib.load(vectorizer_path)
+        
+        print("✅ Emotion classifier loaded successfully!")
+    
+    def clean_text(self, text: str) -> str:
+        """Clean input text (same as training)"""
+        if isinstance(text, str):
+            text = text.lower().strip()
+            # Add any additional cleaning you used during training
+            return text
+        return ""
+    
+    def predict_emotion(self, text: str) -> Dict:
+        """Predict emotion from text"""
+        cleaned_text = self.clean_text(text)
+        text_vec = self.vectorizer.transform([cleaned_text])
+        
+        emotion = self.model.predict(text_vec)[0]
+        confidence = float(self.model.predict_proba(text_vec).max())
+        
+        # Get top 3 emotions
+        all_emotions = self.model.classes_
+        all_probs = self.model.predict_proba(text_vec)[0]
+        top_3_idx = all_probs.argsort()[-3:][::-1]
+        top_3_emotions = all_emotions[top_3_idx]
+        top_3_probs = all_probs[top_3_idx]
+        
         return {
-            "primary_emotion": primary_emotion,
-            "confidence": confidence,
-            "alternative_emotions": alternative_emotions,
+            'primary_emotion': emotion,
+            'confidence': confidence,
+            'alternative_emotions': [
+                {'emotion': emot, 'probability': float(prob)} 
+                for emot, prob in zip(top_3_emotions, top_3_probs)
+            ]
         }
 
-
-# create a single global instance used by FastAPI
+# Create a singleton instance
 emotion_classifier = EmotionClassifier()
-print("✔ BERT Emotion Model Loaded Successfully")
