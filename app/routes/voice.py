@@ -9,13 +9,9 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from pydub import AudioSegment
 from vosk import Model, KaldiRecognizer
 
-
-from app.models.emotion_model import emotion_classifier   # Emotion classifier
-from app.schemas.emotion_schemas import EmotionResponse   # Optional schema
+from app.models.emotion_model import emotion_classifier  # Hugging Face BERT
 
 router = APIRouter(prefix="/voice", tags=["voice"])
-
-
 
 # Vosk model path
 VOSK_MODEL_PATH = os.path.join(os.path.dirname(__file__), "../../models/vosk-small")
@@ -46,7 +42,6 @@ async def transcribe_voice(audio_file: UploadFile = File(...)):
         audio = audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
         audio.export(pcm_path, format="wav")
         print(f"[INFO] Converted PCM WAV saved at: {pcm_path}")
-        print(f"[DEBUG] Audio properties - Channels: {audio.channels}, Frame rate: {audio.frame_rate}, Sample width: {audio.sample_width}")
 
         # ----- 3. Transcribe with Vosk -----
         wf = wave.open(pcm_path, "rb")
@@ -65,8 +60,7 @@ async def transcribe_voice(audio_file: UploadFile = File(...)):
 
         # ----- 4. Emotion Analysis -----
         if final_text:
-    # use the full pipeline directly
-            emotion_result = emotion_10_classifier.predict_emotion(final_text)
+            emotion_result = emotion_classifier.predict_emotion(final_text)
         else:
             emotion_result = {
                 "primary_emotion": "neutral",
@@ -74,18 +68,12 @@ async def transcribe_voice(audio_file: UploadFile = File(...)):
                 "alternative_emotions": {}
             }
 
-        # ----- 5. Cleanup -----
-        # os.remove(tmp_path)
-        # os.remove(pcm_path)
-        # print(f"[INFO] Temporary files deleted.")
-
-        # ----- 6. Return transcription + emotion + PCM path -----
+        # ----- 5. Return transcription + emotion -----
         return {
             "success": True,
             "transcribed_text": final_text,
             "emotion": emotion_result,
-            "pcm_path": pcm_path,
-            "message": f"Transcription + emotion analysis completed. PCM WAV was at {pcm_path}"
+            "pcm_path": pcm_path
         }
 
     except Exception as e:

@@ -15,7 +15,11 @@ from vosk import Model, KaldiRecognizer
 
 # Database imports
 from .database import Base, engine
-from app.models import user, mood, task, hack  # your SQLAlchemy models
+from app.models import user, mood, task, hack  # SQLAlchemy models
+
+# NEW: import the BERT emotional classifier
+from app.models.emotion_model import emotion_classifier
+
 
 # -----------------------------
 # Initialize FastAPI app
@@ -47,12 +51,13 @@ async def log_requests(request: Request, call_next):
             content={"success": False, "error": {"code": "SERVER_ERROR", "message": "Unexpected error"}}
         )
 
+
 # -----------------------------
 # CORS Middleware
 # -----------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten in production
+    allow_origins=["*"],   # change later for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,6 +67,7 @@ app.add_middleware(
 # Initialize Database
 # -----------------------------
 Base.metadata.create_all(bind=engine)
+
 
 # -----------------------------
 # Load Vosk Model
@@ -73,29 +79,53 @@ if not os.path.exists(VOSK_MODEL_PATH):
 print(f"[INFO] Using Vosk model at: {VOSK_MODEL_PATH}")
 vosk_model = Model(VOSK_MODEL_PATH)
 
+
 # -----------------------------
-# Transcription Endpoint
+# /transcribe — Voice → Text
 # -----------------------------
 @app.post("/transcribe")
 async def transcribe(audio_file: UploadFile = File(...)):
-    # Read audio file into memory
     data, samplerate = sf.read(audio_file.file)
-    
-    # Convert to mono if needed
+
+    # convert stereo → mono
     if len(data.shape) > 1:
         data = data.mean(axis=1)
-    
-    # Convert to 16-bit PCM
+
+    # convert to 16-bit PCM
     data = (data * 32767).astype(np.int16)
-    
+
     rec = KaldiRecognizer(vosk_model, samplerate)
     rec.AcceptWaveform(data.tobytes())
     result = rec.FinalResult()
     text = json.loads(result).get("text", "")
-    return {"transcription": text}
+
+    return {"success": True, "transcription": text}
+
 
 # -----------------------------
-# Include Routers
+# /analyze — Text → Emotion
+# -----------------------------
+@app.post("/analyze")
+async def analyze(request: dict):
+    text = request.get("text", "")
+
+    if not text or text.strip() == "":
+        return {"success": False, "message": "No text provided."}
+
+    emotion_result = emotion_classifier.predict_emotion(text)
+
+    return {
+        "success": True,
+        "text": text,
+        "primary_emotion": emotion_result["primary_emotion"],
+        "confidence": emotion_result["confidence"],
+        "alternative_emotions": emotion_result["alternative_emotions"],
+        "all_probabilities": emotion_result["all_probabilities"]
+    }
+
+
+# -----------------------------
+# Include Routes
 # -----------------------------
 from app.routes import user as user_routes
 from app.routes import mood as mood_routes
@@ -112,6 +142,7 @@ app.include_router(resources_routes.router, prefix="/resources", tags=["Resource
 app.include_router(profile_routes.router, prefix="/profile", tags=["Profile"])
 app.include_router(hack_routes.router, prefix="/hacks", tags=["Hacks"])
 app.include_router(voice_routes.router)
+
 
 # -----------------------------
 # Health Check
