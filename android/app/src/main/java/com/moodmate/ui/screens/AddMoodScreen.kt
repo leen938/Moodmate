@@ -49,6 +49,7 @@ fun AddMoodScreen(navController: NavController) {
     var isRecording by remember { mutableStateOf(false) }
     var isTranscribing by remember { mutableStateOf(false) }
     var transcriptionError by remember { mutableStateOf<String?>(null) }
+    var detectedEmotionLabel by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
@@ -78,6 +79,7 @@ fun AddMoodScreen(navController: NavController) {
                             val response = result.getOrNull()
                             if (response?.success == true && !response.transcribed_text.isNullOrBlank()) {
                                 notes = response.transcribed_text
+                                detectedEmotionLabel = response.emotion?.label
                                 
                                 // Auto-select mood based on emotion_level if available
                                 response.emotion_level?.let { emotionLevel ->
@@ -91,10 +93,12 @@ fun AddMoodScreen(navController: NavController) {
                                 transcriptionError = null
                             } else {
                                 transcriptionError = response?.message ?: "Transcription failed"
+                                detectedEmotionLabel = null
                             }
                         }
                         else -> {
                             transcriptionError = result.exceptionOrNull()?.message ?: "Failed to transcribe audio"
+                            detectedEmotionLabel = null
                         }
                     }
                     isTranscribing = false
@@ -190,12 +194,14 @@ fun AddMoodScreen(navController: NavController) {
                                         isRecording = false
                                         file?.let {
                                             scope.launch {
+                                                detectedEmotionLabel = null
                                                 transcribeAudioFile(context, null, it) { result ->
                                                     when {
                                                         result.isSuccess -> {
                                                             val response = result.getOrNull()
                                                             if (response?.success == true && !response.transcribed_text.isNullOrBlank()) {
                                                                 notes = response.transcribed_text
+                                                                detectedEmotionLabel = response.emotion?.label
                                                                 
                                                                 // Auto-select mood based on emotion_level if available
                                                                 response.emotion_level?.let { emotionLevel ->
@@ -209,10 +215,12 @@ fun AddMoodScreen(navController: NavController) {
                                                                 transcriptionError = null
                                                             } else {
                                                                 transcriptionError = response?.message ?: "Transcription failed"
+                                                                detectedEmotionLabel = null
                                                             }
                                                         }
                                                         else -> {
                                                             transcriptionError = result.exceptionOrNull()?.message ?: "Failed to transcribe audio"
+                                                            detectedEmotionLabel = null
                                                         }
                                                     }
                                                     isTranscribing = false
@@ -253,6 +261,7 @@ fun AddMoodScreen(navController: NavController) {
                             onClick = {
                                 if (readStoragePermission.status.isGranted) {
                                     isTranscribing = true
+                                    detectedEmotionLabel = null
                                     filePickerLauncher.launch("audio/*")
                                 } else {
                                     readStoragePermission.launchPermissionRequest()
@@ -304,6 +313,14 @@ fun AddMoodScreen(navController: NavController) {
                 maxLines = 5,
                 enabled = !isTranscribing
             )
+            
+            detectedEmotionLabel?.let { label ->
+                Text(
+                    text = "Detected emotion: $label",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
             
             // Save Button
             Button(
