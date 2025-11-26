@@ -22,3 +22,4 @@ venv311/
 # Ignore large model weights
 app/models/bert_emotion_model/model.safetensors
 *.safetensors
+android/app/build/
