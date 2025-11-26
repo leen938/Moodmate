@@ -102,7 +102,7 @@ interface ApiService {
     @Multipart
     @POST("voice/transcribe")
     suspend fun transcribeVoice(
-        @Part audioFile: MultipartBody.Part,
+        @Part("audio_file") audioFile: MultipartBody.Part,
         @Part("language") language: RequestBody?
     ): Response<TranscriptionResponse>
     

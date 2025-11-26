@@ -9,7 +9,8 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.mood import Mood
 from app.models.user import User
-from app.schemas.mood import MoodCreate, MoodResponse, MoodSummary, MoodListResponse
+from app.schemas.mood import MoodCreate, MoodResponse, MoodSummary, MoodListResponse, EmojiEmotionList
+from app.services.emoji_mapping import EMOJI_EMOTIONS, emoji_options, resolve_emotion_from_emoji
 
 router = APIRouter()
 
@@ -45,11 +46,38 @@ async def add_mood(
     if mood_data.tags:
         tags_string = ",".join(mood_data.tags)
     
+    # Determine the stored emotion based on emoji selection
+    emoji_emotion = resolve_emotion_from_emoji(mood_data.emoji)
+
+    if mood_data.emotion:
+        # Ensure provided emotion aligns with emoji mapping when both are supplied
+        if emoji_emotion and mood_data.emotion != emoji_emotion:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "Emoji does not match the provided emotion"}
+            )
+        # Ensure the emotion is supported by at least one emoji
+        if mood_data.emotion not in EMOJI_EMOTIONS.values():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "Unsupported emotion selection"}
+            )
+
+    if mood_data.emoji and not emoji_emotion:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "Unsupported emoji selection"}
+        )
+
+    stored_emotion = mood_data.emotion or emoji_emotion
+
     # Create new mood entry
     new_mood = Mood(
         user_id=current_user.id,
         date=mood_data.date,
         mood_level=mood_data.moodLevel,
+        emoji=mood_data.emoji,
+        emotion=stored_emotion,
         tags=tags_string,
         notes=mood_data.notes
     )
@@ -68,6 +96,8 @@ async def add_mood(
         user_id=new_mood.user_id,
         date=new_mood.date,
         mood_level=new_mood.mood_level,
+        emoji=new_mood.emoji,
+        emotion=new_mood.emotion,
         tags=tags_list,
         notes=new_mood.notes
     )
@@ -117,6 +147,8 @@ async def get_all_moods(
             user_id=mood.user_id,
             date=mood.date,
             mood_level=mood.mood_level,
+            emoji=mood.emoji,
+            emotion=mood.emotion,
             tags=tags_list,
             notes=mood.notes
         ))
@@ -142,97 +174,7 @@ async def get_mood_summary(
     - **range**: Time range - 'week' (last 7 days) or 'month' (last 30 days)
     - **from**: Custom start date (overrides range if provided)
     - **to**: Custom end date (overrides range if provided)
-    
-    Returns summary with total entries, average mood, daily breakdown, top tags, and trend.
-    """
-    # Determine date range
-    end_date = date.today()
-    
-    if from_date and to_date:
-        # Custom date range
-        start_date = from_date
-        end_date = to_date
-    elif range_type == "week":
-        start_date = end_date - timedelta(days=6)
-    elif range_type == "month":
-        start_date = end_date - timedelta(days=29)
-    else:
-        # Default to month
-        start_date = end_date - timedelta(days=29)
-    
-    # Get mood entries in the date range
-    moods = db.query(Mood).filter(
-        and_(
-            Mood.user_id == current_user.id,
-            Mood.date >= start_date,
-            Mood.date <= end_date
-        )
-    ).order_by(Mood.date.asc()).all()
-    
-    if not moods:
-        return MoodSummary(
-            total=0,
-            average=0.0,
-            by_day=[],
-            top_tags=[],
-            trend="flat"
-        )
-    
-    # Calculate statistics
-    total = len(moods)
-    average = sum(mood.mood_level for mood in moods) / total
-    
-    # Create daily breakdown
-    by_day = [
-        {"date": mood.date.isoformat(), "mood": mood.mood_level}
-        for mood in moods
-    ]
-    
-    # Calculate top tags
-    all_tags = []
-    for mood in moods:
-        if mood.tags:
-            all_tags.extend([tag.strip() for tag in mood.tags.split(',') if tag.strip()])
-    
-    # Get top 5 tags by frequency
-    tag_counts = Counter(all_tags)
-    top_tags = [tag for tag, count in tag_counts.most_common(5)]
-    
-    # Calculate trend
-    trend = "flat"
-    if len(moods) >= 14:  # Need at least 2 weeks of data
-        # Split into two equal periods
-        mid_point = len(moods) // 2
-        first_half = moods[:mid_point]
-        second_half = moods[mid_point:]
-        
-        first_avg = sum(mood.mood_level for mood in first_half) / len(first_half)
-        second_avg = sum(mood.mood_level for mood in second_half) / len(second_half)
-        
-        diff = second_avg - first_avg
-        if abs(diff) <= 0.1:
-            trend = "flat"
-        elif diff > 0.1:
-            trend = "up"
-        else:
-            trend = "down"
-    
-    return MoodSummary(
-        total=total,
-        average=round(average, 2),
-        by_day=by_day,
-        top_tags=top_tags,
-        trend=trend
-    )
-
-@router.get("/{mood_date}", response_model=MoodResponse)
-async def get_mood_by_date(
-    mood_date: date,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get mood entry for a specific date for the authenticated user.
+@@ -236,28 +268,36 @@ async def get_mood_by_date(
     
     - **mood_date**: Date to retrieve mood for (YYYY-MM-DD format)
     
@@ -258,6 +200,14 @@ async def get_mood_by_date(
         user_id=mood.user_id,
         date=mood.date,
         mood_level=mood.mood_level,
+        emoji=mood.emoji,
+        emotion=mood.emotion,
         tags=tags_list,
         notes=mood.notes
     )
+
+
+@router.get("/emoji-options", response_model=EmojiEmotionList)
+async def list_emoji_options():
+    """List available emoji/emotion pairs for mood selection."""
+    return EmojiEmotionList(options=emoji_options())

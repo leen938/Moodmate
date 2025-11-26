@@ -6,6 +6,8 @@ class MoodCreate(BaseModel):
     """Schema for creating a new mood entry"""
     date: Date = Field(..., description="Date for the mood entry")
     moodLevel: int = Field(..., ge=1, le=5, description="Mood level from 1-5")
+    emoji: Optional[str] = Field(None, description="Emoji representing the user's emotion")
+    emotion: Optional[str] = Field(None, description="Named emotion linked to the selected emoji")
     tags: Optional[List[str]] = Field(None, description="List of tags (max 10)")
     notes: Optional[str] = Field(None, max_length=1000, description="Optional notes (max 1000 chars)")
 
@@ -30,6 +32,8 @@ class MoodResponse(BaseModel):
     userId: str = Field(..., alias="user_id")
     date: Date
     moodLevel: int = Field(..., alias="mood_level")
+    emoji: Optional[str] = None
+    emotion: Optional[str] = None
     tags: Optional[List[str]] = None
     notes: Optional[str] = None
 
@@ -60,3 +64,12 @@ class MoodListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class EmojiEmotion(BaseModel):
+    emoji: str
+    emotion: str
+
+
+class EmojiEmotionList(BaseModel):
+    options: List[EmojiEmotion]
