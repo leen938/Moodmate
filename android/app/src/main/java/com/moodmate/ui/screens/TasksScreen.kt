@@ -8,13 +8,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.moodmate.TasksViewModel
+import com.moodmate.data.local.TokenManager
+import com.moodmate.data.model.TaskResponse
 import com.moodmate.navigation.Screen
 import com.moodmate.ui.components.BottomNavBar
 import com.moodmate.ui.components.CustomTopAppBar
@@ -22,6 +34,16 @@ import com.moodmate.ui.theme.PurplePrimary
 
 @Composable
 fun TasksScreen(navController: NavController) {
+    val context = LocalContext.current
+    val tokenManager = remember { TokenManager(context) }
+    val viewModel: TasksViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return TasksViewModel(tokenManager) as T
+        }
+    })
+    val uiState by viewModel.uiState.collectAsState()
+
     Column(modifier = Modifier.fillMaxSize()) {
         CustomTopAppBar(title = "My Tasks")
 
@@ -37,36 +59,80 @@ fun TasksScreen(navController: NavController) {
                 }
             }
         ) { padding ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    Text(
-                        text = "Your tasks",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+            when {
+                uiState.isLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
 
-                // Placeholder tasks
-                items((0 until 5).toList()) { index ->
-                    TaskCard(
-                        title = "Task ${index + 1}",
-                        description = "Task description",
-                        isCompleted = index % 2 == 0,
-                        priority = when (index % 4) {
-                            0 -> "URGENT"
-                            1 -> "HIGH"
-                            2 -> "MEDIUM"
-                            else -> "LOW"
+                uiState.error != null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = uiState.error ?: "Failed to load tasks.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            OutlinedButton(onClick = { viewModel.refresh() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Retry")
+                                Spacer(Modifier.width(8.dp))
+                                Text("Retry")
+                            }
                         }
-                    )
+                    }
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item {
+                            Text(
+                                text = "Your tasks",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+
+                        if (uiState.tasks.isEmpty()) {
+                            item {
+                                Text(
+                                    text = "No tasks yet. Add one or convert a hack into a task.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            items(uiState.tasks) { task ->
+                                TaskCard(
+                                    task = task,
+                                    isToggling = uiState.togglingIds.contains(task.id),
+                                    onToggle = { viewModel.toggleTask(task.id) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -75,10 +141,9 @@ fun TasksScreen(navController: NavController) {
 
 @Composable
 fun TaskCard(
-    title: String,
-    description: String?,
-    isCompleted: Boolean,
-    priority: String
+    task: TaskResponse,
+    isToggling: Boolean,
+    onToggle: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -95,45 +160,48 @@ fun TaskCard(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { /* TODO: Toggle */ }) {
+            IconButton(onClick = onToggle, enabled = !isToggling) {
                 Icon(
-                    if (isCompleted) Icons.Default.CheckCircle else Icons.Default.Circle,
-                    contentDescription = if (isCompleted) "Completed" else "Not completed",
-                    tint = if (isCompleted)
-                        PurplePrimary
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    if (task.is_completed) Icons.Default.CheckCircle else Icons.Default.Circle,
+                    contentDescription = if (task.is_completed) "Completed" else "Not completed",
+                    tint = if (task.is_completed) PurplePrimary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Column(modifier = Modifier.weight(1f)) {
-                // Title
                 Text(
-                    text = title,
+                    text = task.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isCompleted)
+                    color = if (task.is_completed)
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     else
                         MaterialTheme.colorScheme.onSurface
                 )
 
-                // Description
-                description?.let {
+                task.description?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (task.is_completed) 0.7f else 1f),
+                        modifier = Modifier.padding(top = 4.dp),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                // Priority label
                 Text(
-                    text = priority,
+                    text = task.priority,
                     style = MaterialTheme.typography.labelSmall,
                     color = PurplePrimary,
                     modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
+            if (isToggling) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
                 )
             }
         }
