@@ -77,14 +77,8 @@ interface ApiService {
     @POST("hacks/")
     suspend fun createHack(@Body request: HackCreate): Response<HackSingleResponse>
     
-    @GET("hacks/")
-    suspend fun getHacks(
-        @Query("category") category: String? = null,
-        @Query("tag") tag: String? = null,
-        @Query("search") search: String? = null,
-        @Query("limit") limit: Int = 50,
-        @Query("offset") offset: Int = 0
-    ): Response<HackListResponse>
+    @GET("resources/wellness")
+    suspend fun getWellnessTips(): Response<List<WellnessTip>>
     
     @GET("hacks/{id}")
     suspend fun getHack(@Path("id") id: Int): Response<HackSingleResponse>
@@ -102,10 +96,10 @@ interface ApiService {
     @Multipart
     @POST("voice/transcribe")
     suspend fun transcribeVoice(
-        @Part("audio_file") audioFile: MultipartBody.Part,
+        @Part audioFile: MultipartBody.Part,
         @Part("language") language: RequestBody?
     ): Response<TranscriptionResponse>
-    
+
     // Health
     @GET("/")
     suspend fun healthCheck(): Response<Map<String, String>>

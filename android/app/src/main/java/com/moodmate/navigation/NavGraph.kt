@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.moodmate.ui.screens.*
 
+
 sealed class Screen(val route: String) {
     object Login : Screen("login")
     object Home : Screen("home")

@@ -3,6 +3,8 @@ package com.moodmate.data.model
 data class MoodCreate(
     val date: String, // YYYY-MM-DD
     val moodLevel: Int, // 1-5
+    val emoji: String? = null,
+    val emotion: String? = null,
     val tags: List<String>? = null,
     val notes: String? = null
 )
@@ -12,6 +14,8 @@ data class MoodResponse(
     val userId: String,
     val date: String,
     val moodLevel: Int,
+    val emoji: String? = null,
+    val emotion: String? = null,
     val tags: List<String>? = null,
     val notes: String? = null
 )

@@ -24,7 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.moodmate.HacksViewModel
 import com.moodmate.data.local.TokenManager
-import com.moodmate.data.model.HackResponse
+import com.moodmate.data.model.WellnessTip
 import com.moodmate.ui.components.BottomNavBar
 import com.moodmate.ui.components.CustomTopAppBar
 import com.moodmate.ui.theme.PurplePrimary
@@ -129,7 +129,7 @@ fun HacksScreen(navController: NavController) {
 
 @Composable
 fun HackCard(
-    hack: HackResponse,
+    hack: WellnessTip,
     isAdding: Boolean,
     onAddToTasks: () -> Unit
 ) {
@@ -167,7 +167,7 @@ fun HackCard(
             }
 
             Text(
-                text = hack.content,
+                text = hack.description,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 4,

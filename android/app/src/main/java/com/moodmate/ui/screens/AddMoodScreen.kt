@@ -26,6 +26,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import com.moodmate.data.api.RetrofitClient
 import com.moodmate.data.local.TokenManager
+import com.moodmate.data.model.MoodCreate
 import com.moodmate.data.model.TranscriptionResponse
 import kotlinx.coroutines.flow.first
 import com.moodmate.ui.components.CustomTopAppBar
@@ -49,13 +50,14 @@ fun AddMoodScreen(navController: NavController) {
     var isRecording by remember { mutableStateOf(false) }
     var isTranscribing by remember { mutableStateOf(false) }
     var transcriptionError by remember { mutableStateOf<String?>(null) }
+    var detectedEmotionLabel by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    
+
     // Audio recording state
     var mediaRecorder: MediaRecorder? by remember { mutableStateOf(null) }
     var audioFile: File? by remember { mutableStateOf(null) }
-    
+
     // Permissions
     val recordAudioPermission = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
     val readStoragePermission = rememberPermissionState(
@@ -65,7 +67,7 @@ fun AddMoodScreen(navController: NavController) {
             Manifest.permission.READ_EXTERNAL_STORAGE
         }
     )
-    
+
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -78,7 +80,7 @@ fun AddMoodScreen(navController: NavController) {
                             val response = result.getOrNull()
                             if (response?.success == true && !response.transcribed_text.isNullOrBlank()) {
                                 notes = response.transcribed_text
-                                
+
                                 // Auto-select mood based on emotion_level if available
                                 response.emotion_level?.let { emotionLevel ->
                                     // Convert emotion_level (1-10) to mood selection (1-10)
@@ -87,14 +89,19 @@ fun AddMoodScreen(navController: NavController) {
                                         selectedMood = emotionLevel
                                     }
                                 }
-                                
+
+                                // Show detected emotion label if available
+                                detectedEmotionLabel = response.emotion?.primary_emotion
+
                                 transcriptionError = null
                             } else {
                                 transcriptionError = response?.message ?: "Transcription failed"
+                                detectedEmotionLabel = null
                             }
                         }
                         else -> {
                             transcriptionError = result.exceptionOrNull()?.message ?: "Failed to transcribe audio"
+                            detectedEmotionLabel = null
                         }
                     }
                     isTranscribing = false
@@ -102,13 +109,13 @@ fun AddMoodScreen(navController: NavController) {
             }
         }
     }
-    
+
     Column(modifier = Modifier.fillMaxSize()) {
         CustomTopAppBar(
             title = "Add Mood",
             onBackClick = { navController.popBackStack() }
         )
-        
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -120,7 +127,7 @@ fun AddMoodScreen(navController: NavController) {
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
-            
+
             // Mood Selector
             // Mood Selector: 2 rows of 5
             Column(
@@ -154,7 +161,7 @@ fun AddMoodScreen(navController: NavController) {
                     }
                 }
             }
-            
+
             // AI Helper Section
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -175,7 +182,7 @@ fun AddMoodScreen(navController: NavController) {
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium
                     )
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -196,7 +203,7 @@ fun AddMoodScreen(navController: NavController) {
                                                             val response = result.getOrNull()
                                                             if (response?.success == true && !response.transcribed_text.isNullOrBlank()) {
                                                                 notes = response.transcribed_text
-                                                                
+
                                                                 // Auto-select mood based on emotion_level if available
                                                                 response.emotion_level?.let { emotionLevel ->
                                                                     // Convert emotion_level (1-10) to mood selection (1-10)
@@ -205,14 +212,19 @@ fun AddMoodScreen(navController: NavController) {
                                                                         selectedMood = emotionLevel
                                                                     }
                                                                 }
-                                                                
+
+                                                                // Show detected emotion label if available
+                                                                detectedEmotionLabel = response.emotion?.primary_emotion
+
                                                                 transcriptionError = null
                                                             } else {
                                                                 transcriptionError = response?.message ?: "Transcription failed"
+                                                                detectedEmotionLabel = null
                                                             }
                                                         }
                                                         else -> {
                                                             transcriptionError = result.exceptionOrNull()?.message ?: "Failed to transcribe audio"
+                                                            detectedEmotionLabel = null
                                                         }
                                                     }
                                                     isTranscribing = false
@@ -222,6 +234,12 @@ fun AddMoodScreen(navController: NavController) {
                                     }
                                 } else {
                                     if (recordAudioPermission.status.isGranted) {
+                                        // Starting a new recording: clear previous transcription & emotion
+                                        notes = ""
+                                        detectedEmotionLabel = null
+                                        transcriptionError = null
+                                        selectedMood = 0
+
                                         startRecording(context) { recorder, file ->
                                             mediaRecorder = recorder
                                             audioFile = file
@@ -247,7 +265,7 @@ fun AddMoodScreen(navController: NavController) {
                                 )
                             }
                         }
-                        
+
                         // Upload Button
                         IconButton(
                             onClick = {
@@ -274,7 +292,7 @@ fun AddMoodScreen(navController: NavController) {
                             }
                         }
                     }
-                    
+
                     if (isTranscribing) {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                         Text(
@@ -282,7 +300,7 @@ fun AddMoodScreen(navController: NavController) {
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    
+
                     transcriptionError?.let { error ->
                         Text(
                             text = error,
@@ -304,12 +322,66 @@ fun AddMoodScreen(navController: NavController) {
                 maxLines = 5,
                 enabled = !isTranscribing
             )
-            
+
+            // Detected Emotion (from transcription)
+            detectedEmotionLabel?.let { emotionName ->
+                Text(
+                    text = "Your emotion is: $emotionName",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
             // Save Button
             Button(
                 onClick = {
-                    // TODO: Save mood
-                    navController.popBackStack()
+                    scope.launch {
+                        try {
+                            val tokenManager = TokenManager(context)
+                            val token = tokenManager.token.first()
+                            RetrofitClient.setAuthToken(token)
+
+                            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                            val emoji = when (selectedMood) {
+                                1 -> "😢"
+                                2 -> "😣"
+                                3 -> "😥"
+                                4 -> "😕"
+                                5 -> "😐"
+                                6 -> "🙂"
+                                7 -> "😎"
+                                8 -> "🤭"
+                                9 -> "☺️"
+                                10 -> "😄"
+                                else -> null
+                            }
+
+                            val moodLevel = when {
+                                selectedMood <= 2 -> 1
+                                selectedMood <= 4 -> 2
+                                selectedMood <= 6 -> 3
+                                selectedMood <= 8 -> 4
+                                else -> 5
+                            }
+
+                            val request = MoodCreate(
+                                date = today,
+                                moodLevel = moodLevel,
+                                emoji = emoji,
+                                emotion = detectedEmotionLabel,
+                                notes = if (notes.isBlank()) null else notes
+                            )
+
+                            val response = RetrofitClient.apiService.addMood(request)
+                            if (response.isSuccessful && response.body() != null) {
+                                navController.popBackStack()
+                            } else {
+                                transcriptionError = response.errorBody()?.string() ?: "Failed to save mood"
+                            }
+                        } catch (e: Exception) {
+                            transcriptionError = e.message ?: "Failed to save mood"
+                        }
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -369,10 +441,10 @@ fun startRecording(context: Context, onStarted: (MediaRecorder, File) -> Unit) {
         if (!audioDir.exists()) {
             audioDir.mkdirs()
         }
-        
+
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val audioFile = File(audioDir, "recording_$timestamp.m4a")
-        
+
         val mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             MediaRecorder(context)
         } else {
@@ -386,7 +458,7 @@ fun startRecording(context: Context, onStarted: (MediaRecorder, File) -> Unit) {
             setAudioEncodingBitRate(128000)  // 128 kbps for good quality
             setAudioSamplingRate(44100)     // 44.1 kHz sample rate (CD quality)
             setOutputFile(audioFile.absolutePath)
-            
+
             try {
                 prepare()
                 start()
@@ -422,7 +494,7 @@ suspend fun transcribeAudioFile(
 ) {
     try {
         val audioFile = file ?: run {
-            uri?.let { 
+            uri?.let {
                 val inputStream = context.contentResolver.openInputStream(it)
                 val tempFile = File(context.cacheDir, "temp_audio_${System.currentTimeMillis()}.m4a")
                 inputStream?.use { input ->
@@ -433,21 +505,21 @@ suspend fun transcribeAudioFile(
                 tempFile
             }
         }
-        
+
         if (audioFile == null || !audioFile.exists()) {
             onResult(Result.failure(Exception("Audio file not found")))
             return
         }
-        
+
         // Get auth token
         val tokenManager = TokenManager(context)
         val token = tokenManager.token.first()
         RetrofitClient.setAuthToken(token)
-        
+
         // Create multipart request
         // Ensure filename has proper extension
-        val fileName = if (audioFile.name.endsWith(".m4a") || audioFile.name.endsWith(".mp3") || 
-                          audioFile.name.endsWith(".wav") || audioFile.name.endsWith(".ogg")) {
+        val fileName = if (audioFile.name.endsWith(".m4a") || audioFile.name.endsWith(".mp3") ||
+            audioFile.name.endsWith(".wav") || audioFile.name.endsWith(".ogg")) {
             audioFile.name
         } else {
             "${audioFile.name}.m4a"  // Default to m4a if no extension
@@ -455,17 +527,17 @@ suspend fun transcribeAudioFile(
         val requestFile = audioFile.asRequestBody("audio/m4a".toMediaTypeOrNull())
         val audioPart = MultipartBody.Part.createFormData("audio_file", fileName, requestFile)
         val languagePart = null // Optional, can be added later
-        
+
         // Call API
         val response = RetrofitClient.apiService.transcribeVoice(audioPart, languagePart)
-        
+
         if (response.isSuccessful && response.body() != null) {
             onResult(Result.success(response.body()!!))
         } else {
             val errorMsg = response.errorBody()?.string() ?: "Transcription failed"
             onResult(Result.failure(Exception(errorMsg)))
         }
-        
+
         // Clean up temp file if created from URI
         if (uri != null && audioFile.exists()) {
             audioFile.delete()
@@ -474,4 +546,3 @@ suspend fun transcribeAudioFile(
         onResult(Result.failure(e))
     }
 }
-

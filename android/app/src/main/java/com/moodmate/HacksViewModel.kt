@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moodmate.data.api.RetrofitClient
 import com.moodmate.data.local.TokenManager
-import com.moodmate.data.model.HackResponse
+import com.moodmate.data.model.WellnessTip
 import com.moodmate.data.model.TaskCreate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 
 data class HacksUiState(
     val isLoading: Boolean = true,
-    val hacks: List<HackResponse> = emptyList(),
+    val hacks: List<WellnessTip> = emptyList(),
     val error: String? = null,
     val creatingTaskIds: Set<Int> = emptySet()
 )
@@ -41,20 +41,10 @@ class HacksViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 val token = tokenManager.token.first()
                 RetrofitClient.setAuthToken(token)
 
-                val response = RetrofitClient.apiService.getHacks(limit = 50)
+                val response = RetrofitClient.apiService.getWellnessTips()
 
                 if (!response.isSuccessful) {
                     val errorBody = response.errorBody()?.string()
-                    if (response.code() == 401) {
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                error = "Please log in again to view tips."
-                            )
-                        }
-                        return@launch
-                    }
-
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -65,11 +55,11 @@ class HacksViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 }
 
                 val body = response.body()
-                if (body?.success == true) {
+                if (body != null && body.isNotEmpty()) {
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            hacks = body.data,
+                            hacks = body,
                             error = null,
                             creatingTaskIds = emptySet()
                         )
@@ -93,7 +83,7 @@ class HacksViewModel(private val tokenManager: TokenManager) : ViewModel() {
         }
     }
 
-    fun addHackAsTask(hack: HackResponse) {
+    fun addHackAsTask(hack: WellnessTip) {
         viewModelScope.launch {
             _uiState.update { it.copy(creatingTaskIds = it.creatingTaskIds + hack.id) }
             try {
@@ -103,7 +93,7 @@ class HacksViewModel(private val tokenManager: TokenManager) : ViewModel() {
                 val response = RetrofitClient.apiService.createTask(
                     TaskCreate(
                         title = hack.title,
-                        description = hack.content,
+                        description = hack.description,
                         priority = "MEDIUM"
                     )
                 )

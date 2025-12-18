@@ -37,3 +37,11 @@ data class HackSingleResponse(
     val data: HackResponse
 )
 
+data class WellnessTip(
+    val id: Int,
+    val title: String,
+    val description: String,
+    val category: String? = null,
+    val tags: List<String>? = null
+)
+
